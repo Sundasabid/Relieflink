@@ -30,30 +30,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (firebaseUser) {
         setUser(firebaseUser);
         const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
+        
+        try {
+            const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
-          setUserProfile(userSnap.data() as UserProfile);
-           console.log('User profile loaded from Firestore.');
-        } else {
-          console.log('User profile not found, creating new one.');
-          const newUserProfile: UserProfile = {
-            uid: firebaseUser.uid,
-            name: firebaseUser.displayName,
-            email: firebaseUser.email,
-            phone: firebaseUser.phoneNumber,
-            role: 'unassigned',
-          };
-          setDoc(userRef, newUserProfile).catch(async (serverError) => {
+            if (userSnap.exists()) {
+              const profile = userSnap.data() as UserProfile;
+              setUserProfile(profile);
+               console.log('User profile loaded from Firestore:', profile);
+            } else {
+              console.log('User profile not found, creating new one.');
+              const newUserProfile: UserProfile = {
+                uid: firebaseUser.uid,
+                name: firebaseUser.displayName,
+                email: firebaseUser.email,
+                phone: firebaseUser.phoneNumber,
+                role: 'unassigned',
+              };
+              await setDoc(userRef, newUserProfile);
+              setUserProfile(newUserProfile);
+              console.log('New user profile created in Firestore.');
+            }
+        } catch (error) {
+            console.error("Error fetching or creating user profile:", error);
             const permissionError = new FirestorePermissionError({
-              path: userRef.path,
-              operation: 'create',
-              requestResourceData: newUserProfile,
+                path: userRef.path,
+                operation: 'get',
             });
             errorEmitter.emit('permission-error', permissionError);
-          });
-          setUserProfile(newUserProfile);
-          console.log('New user profile creation initiated in Firestore.');
         }
       } else {
         setUser(null);

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "./client";
 import type { HelpRequest, Volunteer, Donor, UserProfile } from "../types";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -10,15 +10,15 @@ import { FirestorePermissionError } from "@/firebase/errors";
 // User Profile
 export const updateUserProfile = (userId: string, data: Partial<UserProfile>) => {
   const userRef = doc(db, "users", userId);
-  setDoc(userRef, data, { merge: true }).catch(async (serverError) => {
+  return updateDoc(userRef, data).catch(async (serverError) => {
     const permissionError = new FirestorePermissionError({
         path: userRef.path,
         operation: 'update',
         requestResourceData: data,
     });
     errorEmitter.emit('permission-error', permissionError);
+    throw serverError; // Re-throw to be caught by the calling function
   });
-  console.log("User profile update initiated in Firestore.");
 };
 
 export const getUserProfile = async (userId: string) => {

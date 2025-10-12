@@ -1,8 +1,10 @@
 
 import type { User as FirebaseUser } from 'firebase/auth';
 
+export type Role = 'unassigned' | 'requester' | 'volunteer' | 'donor' | 'admin';
+
 export interface User extends FirebaseUser {
-  role?: 'unassigned' | 'requester' | 'volunteer' | 'donor' | 'admin';
+  role?: Role;
 }
 
 export interface UserProfile {
@@ -10,7 +12,7 @@ export interface UserProfile {
   name: string | null;
   email: string | null;
   phone: string | null;
-  role: 'unassigned' | 'requester' | 'volunteer' | 'donor' | 'admin';
+  role: Role;
 }
 
 export interface HelpRequest {

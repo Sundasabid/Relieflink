@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -11,14 +11,24 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, userProfile } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/login');
+      return;
     }
-  }, [user, loading, router]);
+
+    if (!loading && user && userProfile) {
+        if (userProfile.role === 'unassigned' && pathname !== '/role-select') {
+            router.replace('/role-select');
+        } else if (userProfile.role !== 'unassigned' && (pathname === '/role-select' || pathname === '/dashboard')) {
+            router.replace(`/${userProfile.role}-dashboard`);
+        }
+    }
+  }, [user, loading, router, userProfile, pathname]);
 
   if (loading || !user) {
     return (
