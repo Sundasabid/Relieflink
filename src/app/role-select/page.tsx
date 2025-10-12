@@ -28,22 +28,15 @@ export default function RoleSelectPage() {
 
     const updatedProfile: Partial<UserProfile> = { role };
     
-    try {
-        await updateUserProfile(user.uid, updatedProfile);
-        toast({
-            title: 'Role Selected!',
-            description: `You are now a ${role}. Redirecting...`,
-        });
-        router.push(`/${role}-dashboard`);
-    } catch (error) {
-        console.error('Failed to update role', error);
-        toast({
-            title: 'Update Failed',
-            description: 'Could not update your role. Please try again.',
-            variant: 'destructive',
-        });
-        setIsLoading(null);
-    }
+    // By removing the try/catch, we let the global handler process the error.
+    await updateUserProfile(user.uid, updatedProfile);
+    
+    // This part will only run if the update is successful
+    toast({
+        title: 'Role Selected!',
+        description: `You are now a ${role}. Redirecting...`,
+    });
+    router.push(`/${role}-dashboard`);
   };
 
   const roles = [
