@@ -43,7 +43,7 @@ export default function VolunteerStats() {
       <CardHeader>
         <CardTitle>My Stats</CardTitle>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-4 text-center">
+      <CardContent className="grid grid-cols-2 gap-x-4 gap-y-6 text-center">
         <div>
           <p className="text-3xl font-bold text-primary">{tasksCompleted}</p>
           <p className="text-sm text-muted-foreground">Tasks Completed</p>
@@ -52,17 +52,17 @@ export default function VolunteerStats() {
           <p className="text-3xl font-bold text-primary">{pendingTasks}</p>
           <p className="text-sm text-muted-foreground">Pending Tasks</p>
         </div>
-        <div className="col-span-2 space-y-2">
+        <div className="space-y-1">
             <div className='flex items-center justify-center gap-2'>
-              <Award className="h-8 w-8 text-primary" />
-              <Badge className={`text-lg ${badgeColors[badgeLevel]}`}>{badgeLevel}</Badge>
+              <Award className="h-6 w-6 text-primary" />
+              <Badge className={`text-md ${badgeColors[badgeLevel]}`}>{badgeLevel}</Badge>
             </div>
             <p className="text-sm text-muted-foreground">Activity Badge</p>
         </div>
-         <div className="col-span-2 space-y-2">
+         <div className="space-y-1">
              <div className='flex items-center justify-center gap-2'>
-                <Shield className="h-8 w-8 text-primary" />
-                <p className={`text-xl font-bold ${userProfile?.verified ? 'text-green-500' : 'text-muted-foreground'}`}>{userProfile?.verified ? 'Verified' : 'Basic'}</p>
+                <Shield className="h-6 w-6 text-primary" />
+                <p className={`text-lg font-bold ${userProfile?.verified ? 'text-green-500' : 'text-muted-foreground'}`}>{userProfile?.verified ? 'Verified' : 'Basic'}</p>
              </div>
             <p className="text-sm text-muted-foreground">Verification Level</p>
         </div>
