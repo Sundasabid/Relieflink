@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,9 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { updateUserProfile, getVolunteerData, setVolunteerData } from '@/lib/firebase/firestore';
+import { uploadIdDocument, removeIdDocument } from '@/lib/firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Edit, Save, Download } from 'lucide-react';
+import { Loader2, Edit, Save, Download, Upload, Trash2 } from 'lucide-react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -43,6 +44,8 @@ export default function VolunteerProfileCard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
   const [cnicLink, setCnicLink] = useState<string | undefined>(undefined);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -99,6 +102,57 @@ export default function VolunteerProfileCard() {
     }
   }
 
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsUploading(true);
+      try {
+        const downloadURL = await uploadIdDocument(user.uid, file);
+        await setVolunteerData(user.uid, { cnicLink: downloadURL, userId: user.uid });
+        setCnicLink(downloadURL);
+        toast({
+          title: "Upload Successful",
+          description: "Your ID has been uploaded.",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Upload Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const handleRemoveId = async () => {
+    if (!user || !cnicLink) return;
+    setIsUploading(true);
+    try {
+      await removeIdDocument(user.uid);
+      await setVolunteerData(user.uid, { cnicLink: '', userId: user.uid });
+      setCnicLink(undefined);
+      toast({
+        title: "ID Removed",
+        description: "Your ID document has been removed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Removal Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   const skillTypes = ["First Aid", "Driving", "Rescue", "Logistics", "Medical", "Other"];
 
   if (loading) return <Card><CardHeader><CardTitle>My Profile</CardTitle></CardHeader><CardContent>Loading Profile...</CardContent></Card>;
@@ -140,16 +194,38 @@ export default function VolunteerProfileCard() {
                         )}
                         />
                     <FormItem>
-                        <FormLabel>CNIC / ID Link</FormLabel>
+                        <FormLabel>CNIC / ID Document</FormLabel>
+                         <Input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                            accept="image/*,.pdf"
+                         />
                         {cnicLink ? (
                             <div className="flex items-center gap-2">
                                 <Input value="ID document uploaded" disabled />
                                 <Button asChild variant="outline" size="icon">
                                     <a href={cnicLink} target="_blank" rel="noopener noreferrer"><Download className="h-4 w-4" /></a>
                                 </Button>
+                                <Button type="button" variant="destructive" size="icon" onClick={handleRemoveId} disabled={isUploading}>
+                                    {isUploading ? <Loader2 className="animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                </Button>
                             </div>
                         ) : (
-                            <Input value="No ID uploaded" disabled />
+                           <Button type="button" variant="outline" onClick={handleFileSelect} disabled={isUploading} className="w-full">
+                               {isUploading ? (
+                                   <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Uploading...
+                                   </>
+                               ) : (
+                                   <>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Upload ID
+                                   </>
+                               )}
+                           </Button>
                         )}
                     </FormItem>
                 </div>
@@ -159,7 +235,7 @@ export default function VolunteerProfileCard() {
                         id="availability-switch"
                         checked={isAvailable}
                         onCheckedChange={handleAvailabilityToggle}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isUploading}
                     />
                 </div>
 
