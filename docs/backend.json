@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Represents a user's public profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "HelpRequest": {
+      "title": "Help Request",
+      "description": "A request for assistance.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["Medical", "Rescue", "Blood", "Other"] },
+        "location": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "description", "type", "location", "createdAt"]
+    },
+    "Volunteer": {
+      "title": "Volunteer",
+      "description": "Volunteer information.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "skills": { "type": "string" },
+        "availability": { "type": "string" },
+        "location": { "type": "string" }
+      },
+      "required": ["userId", "skills", "availability", "location"]
+    },
+    "Donor": {
+      "title": "Donor",
+      "description": "Blood donor information.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "bloodType": { "type": "string" },
+        "availability": { "type": "string" },
+        "location": { "type": "string" }
+      },
+      "required": ["userId", "bloodType", "availability", "location"]
+    }
+  },
+  "auth": {
+    "providers": ["anonymous", "google.com", "password", "phone"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile documents."
+    },
+    "/requests/{requestId}": {
+      "schema": { "$ref": "#/entities/HelpRequest" },
+      "description": "Help request documents."
+    },
+    "/volunteers/{userId}": {
+      "schema": { "$ref": "#/entities/Volunteer" },
+      "description": "Volunteer registration documents."
+    },
+    "/donors/{userId}": {
+      "schema": { "$ref": "#/entities/Donor" },
+      "description": "Blood donor registration documents."
+    }
+  }
+}
