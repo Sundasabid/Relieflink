@@ -47,20 +47,26 @@ export default function DonorProfileCard() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: userProfile?.name || "",
+      name: "",
       bloodType: "",
     },
   });
 
   useEffect(() => {
     if (userProfile) {
-      form.setValue('name', userProfile.name || '');
+      form.reset({
+        name: userProfile.name || '',
+        bloodType: form.getValues('bloodType') // keep bloodtype
+      });
       setIsAvailable(userProfile.availability ?? false);
     }
     if (user) {
         getDonorData(user.uid).then(donorData => {
             if(donorData) {
-                form.setValue('bloodType', donorData.bloodType);
+                form.reset({
+                  name: form.getValues('name') || userProfile?.name || '',
+                  bloodType: donorData.bloodType
+                });
             }
         });
     }
@@ -156,7 +162,7 @@ export default function DonorProfileCard() {
                         render={({ field }) => (
                             <FormItem>
                             <FormLabel>Blood Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={!isEditing || isSubmitting}>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!isEditing || isSubmitting}>
                                 <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select your blood type" />
