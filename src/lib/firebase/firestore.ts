@@ -3,7 +3,7 @@
 
 import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { db } from "./client";
-import type { HelpRequest, Volunteer, Donor, UserProfile, Donation } from "../types";
+import type { HelpRequest, Volunteer, Donor, UserProfile, Donation, TaskHistory } from "../types";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
@@ -30,7 +30,7 @@ export const getUserProfile = async (userId: string) => {
   return null;
 };
 
-// Help Requests
+// Help Requests / Tasks
 export const addHelpRequest = (request: Omit<HelpRequest, "id" | "createdAt">) => {
   const newRequest = { ...request, createdAt: serverTimestamp(), status: 'pending' };
   const requestsCollection = collection(db, "requests");
@@ -55,6 +55,36 @@ export const getBloodRequests = async (bloodType: string) => {
     });
     return requests;
 };
+
+export const getAvailableTasks = async () => {
+    const requestsRef = collection(db, "requests");
+    const q = query(requestsRef, where("status", "==", "pending"), where("type", "in", ["Rescue", "Medical", "Other"]));
+    const querySnapshot = await getDocs(q);
+    const tasks: HelpRequest[] = [];
+    querySnapshot.forEach((doc) => {
+        tasks.push({ id: doc.id, ...doc.data() } as HelpRequest);
+    });
+    return tasks;
+};
+
+export const acceptTask = (request: HelpRequest, volunteerId: string, volunteerName: string) => {
+    if (!request.id) {
+        throw new Error("Request ID is missing");
+    }
+    const requestRef = doc(db, "requests", request.id);
+    updateDoc(requestRef, {
+        status: "accepted",
+        acceptedBy: volunteerName,
+    }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: requestRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'accepted', acceptedBy: volunteerName }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+    console.log("Task acceptance initiated.");
+}
 
 export const acceptBloodRequest = (request: HelpRequest, donorId: string) => {
     if (!request.id) {
@@ -114,17 +144,17 @@ export const getVolunteerData = async (userId: string) => {
 }
 
 
-export const setVolunteerData = (userId: string, data: Volunteer) => {
+export const setVolunteerData = (userId: string, data: Partial<Volunteer>) => {
   const volunteerRef = doc(db, "volunteers", userId);
-  setDoc(volunteerRef, data, { merge: true }).catch(async (serverError) => {
+  return setDoc(volunteerRef, data, { merge: true }).catch(async (serverError) => {
     const permissionError = new FirestorePermissionError({
         path: volunteerRef.path,
         operation: 'update',
         requestResourceData: data,
     });
     errorEmitter.emit('permission-error', permissionError);
+    throw serverError;
   });
-  console.log("Volunteer data save initiated for user:", userId);
 };
 
 // Donor Data
@@ -183,4 +213,28 @@ export const getPendingDonations = async (donorId: string): Promise<Donation[]> 
         pending.push({ id: doc.id, ...doc.data() } as Donation);
     });
     return pending;
+};
+
+
+// Task History
+export const getTaskHistory = async (volunteerId: string): Promise<TaskHistory[]> => {
+    const historyRef = collection(db, "taskHistory");
+    const q = query(historyRef, where("volunteerId", "==", volunteerId));
+    const querySnapshot = await getDocs(q);
+    const history: TaskHistory[] = [];
+    querySnapshot.forEach((doc) => {
+        history.push({ id: doc.id, ...doc.data() } as TaskHistory);
+    });
+    return history.sort((a, b) => b.completedDate.toDate() - a.completedDate.toDate());
+};
+
+export const getPendingTasks = async (volunteerId: string): Promise<HelpRequest[]> => {
+    const requestsRef = collection(db, "requests");
+    const q = query(requestsRef, where("acceptedBy", "==", volunteerId), where("status", "==", "accepted"));
+    const querySnapshot = await getDocs(q);
+    const tasks: HelpRequest[] = [];
+    querySnapshot.forEach((doc) => {
+        tasks.push({ id: doc.id, ...doc.data() } as HelpRequest);
+    });
+    return tasks;
 };

@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -11,7 +12,8 @@
         "phone": { "type": "string" },
         "role": { "type": "string" },
         "lastDonationDate": { "type": "string", "format": "date-time" },
-        "availability": { "type": "boolean" }
+        "availability": { "type": "boolean" },
+        "verified": { "type": "boolean" }
       },
       "required": ["uid", "name", "email", "role"]
     },
@@ -40,7 +42,8 @@
         "userId": { "type": "string" },
         "skills": { "type": "string" },
         "availability": { "type": "string" },
-        "location": { "type": "string" }
+        "location": { "type": "string" },
+        "cnicLink": { "type": "string" }
       },
       "required": ["userId", "skills", "availability", "location"]
     },
@@ -67,6 +70,18 @@
         "status": { "type": "string", "enum": ["pending", "completed"] }
       },
       "required": ["donorId", "requestId", "donationDate", "status"]
+    },
+    "TaskHistory": {
+        "title": "Task History",
+        "description": "A record of a completed volunteer task.",
+        "type": "object",
+        "properties": {
+          "volunteerId": { "type": "string" },
+          "requestId": { "type": "string" },
+          "completedDate": { "type": "string", "format": "date-time" },
+          "status": { "type": "string", "enum": ["completed"] }
+        },
+        "required": ["volunteerId", "requestId", "completedDate", "status"]
     }
   },
   "auth": {
@@ -92,6 +107,10 @@
     "/donations/{donationId}": {
       "schema": { "$ref": "#/entities/Donation" },
       "description": "Donation history documents."
+    },
+    "/taskHistory/{taskId}": {
+        "schema": { "$ref": "#/entities/TaskHistory" },
+        "description": "Task history documents."
     }
   }
 }

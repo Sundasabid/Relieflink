@@ -15,6 +15,7 @@ export interface UserProfile {
   role: Role;
   lastDonationDate?: any; // Firestore timestamp
   availability?: boolean;
+  verified?: boolean;
 }
 
 export interface HelpRequest {
@@ -37,6 +38,7 @@ export interface Volunteer {
   skills: string;
   availability: string;
   location: string;
+  cnicLink?: string;
 }
 
 export interface Donor {
@@ -54,4 +56,15 @@ export interface Donation {
   status: 'pending' | 'completed';
   requesterName?: string;
   location?: string;
+}
+
+export interface TaskHistory {
+    id?: string;
+    volunteerId: string;
+    requestId: string;
+    completedDate: any; // Firestore timestamp
+    status: 'completed';
+    requesterName?: string;
+    location?: string;
+    taskTitle?: string;
 }
