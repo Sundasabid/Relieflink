@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getVolunteerData, setVolunteerData } from "@/lib/firebase/firestore";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const volunteerSchema = z.object({
   skills: z.string().min(10, "Please describe your skills."),
@@ -33,6 +33,7 @@ type VolunteerFormValues = z.infer<typeof volunteerSchema>;
 export default function VolunteerForm() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<VolunteerFormValues>({
     resolver: zodResolver(volunteerSchema),
@@ -58,19 +59,15 @@ export default function VolunteerForm() {
       toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
       return;
     }
-    try {
-      await setVolunteerData(user.uid, { userId: user.uid, ...data });
-      toast({
-        title: "Registration Complete",
-        description: "Thank you for registering as a volunteer!",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Registration Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    setIsSubmitting(true);
+    setVolunteerData(user.uid, { userId: user.uid, ...data });
+    toast({
+      title: "Registration Submitted",
+      description: "Thank you for registering as a volunteer! Your information is being saved.",
+    });
+    // The UI is updated optimistically, so we can reset the submitting state.
+    // Errors will be handled by the global error listener.
+    setIsSubmitting(false);
   };
 
   return (
@@ -124,8 +121,8 @@ export default function VolunteerForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Volunteer Info
         </Button>
       </form>

@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { updateUserProfile } from "@/lib/firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { useState } from "react";
 
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -30,6 +31,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 export default function ProfileForm() {
   const { user, userProfile, loading } = useAuth();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -48,21 +50,15 @@ export default function ProfileForm() {
       toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
       return;
     }
-    try {
-      await updateUserProfile(user.uid, data);
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been successfully updated.",
-      });
-      console.log('Profile updated in Firestore');
-    } catch (error: any) {
-      toast({
-        title: "Update Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      console.error('Profile update error:', error.message);
-    }
+    setIsSubmitting(true);
+    updateUserProfile(user.uid, data);
+    toast({
+      title: "Profile Update Submitted",
+      description: "Your profile is being updated.",
+    });
+    // The UI is updated optimistically, so we can reset the submitting state.
+    // Errors will be handled by the global error listener.
+    setIsSubmitting(false);
   };
 
   if (loading) {
@@ -110,8 +106,8 @@ export default function ProfileForm() {
                 </div>
             </FormItem>
         </div>
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Update Profile
         </Button>
       </form>

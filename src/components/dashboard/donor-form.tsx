@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { getDonorData, setDonorData } from "@/lib/firebase/firestore";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const donorSchema = z.object({
   bloodType: z.string().min(1, "Blood type is required."),
@@ -39,6 +39,7 @@ type DonorFormValues = z.infer<typeof donorSchema>;
 export default function DonorForm() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<DonorFormValues>({
     resolver: zodResolver(donorSchema),
@@ -64,19 +65,15 @@ export default function DonorForm() {
       toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
       return;
     }
-    try {
-      await setDonorData(user.uid, { userId: user.uid, ...data });
-      toast({
-        title: "Registration Complete",
-        description: "Thank you for registering as a blood donor!",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Registration Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    setIsSubmitting(true);
+    setDonorData(user.uid, { userId: user.uid, ...data });
+    toast({
+      title: "Registration Submitted",
+      description: "Thank you for registering as a blood donor! Your information is being saved.",
+    });
+    // The UI is updated optimistically, so we can reset the submitting state.
+    // Errors will be handled by the global error listener.
+    setIsSubmitting(false);
   };
   
   const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -90,7 +87,7 @@ export default function DonorForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Blood Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your blood type" />
@@ -136,8 +133,8 @@ export default function DonorForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Donor Info
         </Button>
       </form>

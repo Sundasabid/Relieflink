@@ -7,6 +7,9 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/client';
 import type { UserProfile } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import FirebaseErrorListener from '@/components/FirebaseErrorListener';
 
 interface AuthContextType {
   user: User | null;
@@ -41,9 +44,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             phone: firebaseUser.phoneNumber,
             role: 'unassigned',
           };
-          await setDoc(userRef, newUserProfile);
+          setDoc(userRef, newUserProfile).catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+              path: userRef.path,
+              operation: 'create',
+              requestResourceData: newUserProfile,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          });
           setUserProfile(newUserProfile);
-          console.log('New user profile created in Firestore.');
+          console.log('New user profile creation initiated in Firestore.');
         }
       } else {
         setUser(null);
@@ -70,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading }}>
+      <FirebaseErrorListener />
       {children}
     </AuthContext.Provider>
   );

@@ -4,12 +4,21 @@
 import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./client";
 import type { HelpRequest, Volunteer, Donor, UserProfile } from "../types";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 // User Profile
-export const updateUserProfile = async (userId: string, data: Partial<UserProfile>) => {
+export const updateUserProfile = (userId: string, data: Partial<UserProfile>) => {
   const userRef = doc(db, "users", userId);
-  await setDoc(userRef, data, { merge: true });
-  console.log("User profile updated in Firestore.");
+  setDoc(userRef, data, { merge: true }).catch(async (serverError) => {
+    const permissionError = new FirestorePermissionError({
+        path: userRef.path,
+        operation: 'update',
+        requestResourceData: data,
+    });
+    errorEmitter.emit('permission-error', permissionError);
+  });
+  console.log("User profile update initiated in Firestore.");
 };
 
 export const getUserProfile = async (userId: string) => {
@@ -22,11 +31,18 @@ export const getUserProfile = async (userId: string) => {
 };
 
 // Help Requests
-export const addHelpRequest = async (request: Omit<HelpRequest, "id" | "createdAt">) => {
+export const addHelpRequest = (request: Omit<HelpRequest, "id" | "createdAt">) => {
   const newRequest = { ...request, createdAt: serverTimestamp() };
-  const docRef = await addDoc(collection(db, "requests"), newRequest);
-  console.log("Help request added with ID:", docRef.id);
-  return docRef;
+  const requestsCollection = collection(db, "requests");
+  addDoc(requestsCollection, newRequest).catch(async (serverError) => {
+    const permissionError = new FirestorePermissionError({
+        path: requestsCollection.path,
+        operation: 'create',
+        requestResourceData: newRequest,
+    });
+    errorEmitter.emit('permission-error', permissionError);
+  });
+  console.log("Help request add initiated.");
 };
 
 // Volunteer Data
@@ -40,10 +56,17 @@ export const getVolunteerData = async (userId: string) => {
 }
 
 
-export const setVolunteerData = async (userId: string, data: Volunteer) => {
+export const setVolunteerData = (userId: string, data: Volunteer) => {
   const volunteerRef = doc(db, "volunteers", userId);
-  await setDoc(volunteerRef, data, { merge: true });
-  console.log("Volunteer data saved for user:", userId);
+  setDoc(volunteerRef, data, { merge: true }).catch(async (serverError) => {
+    const permissionError = new FirestorePermissionError({
+        path: volunteerRef.path,
+        operation: 'update',
+        requestResourceData: data,
+    });
+    errorEmitter.emit('permission-error', permissionError);
+  });
+  console.log("Volunteer data save initiated for user:", userId);
 };
 
 // Donor Data
@@ -56,10 +79,17 @@ export const getDonorData = async (userId: string) => {
     return null;
 }
 
-export const setDonorData = async (userId: string, data: Donor) => {
+export const setDonorData = (userId: string, data: Donor) => {
   const donorRef = doc(db, "donors", userId);
-  await setDoc(donorRef, data, { merge: true });
-  console.log("Donor data saved for user:", userId);
+  setDoc(donorRef, data, { merge: true }).catch(async (serverError) => {
+      const permissionError = new FirestorePermissionError({
+          path: donorRef.path,
+          operation: 'update',
+          requestResourceData: data,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+  });
+  console.log("Donor data save initiated for user:", userId);
 };
 
 

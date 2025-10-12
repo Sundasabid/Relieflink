@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { addHelpRequest } from "@/lib/firebase/firestore";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 const requestSchema = z.object({
   type: z.enum(["Medical", "Rescue", "Blood", "Other"]),
@@ -40,6 +41,7 @@ type RequestFormValues = z.infer<typeof requestSchema>;
 export default function RequestForm() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestSchema),
@@ -55,20 +57,16 @@ export default function RequestForm() {
       toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
       return;
     }
-    try {
-      await addHelpRequest({ userId: user.uid, ...data });
-      toast({
-        title: "Request Submitted",
-        description: "Your request for help has been posted.",
-      });
-      form.reset();
-    } catch (error: any) {
-      toast({
-        title: "Submission Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    setIsSubmitting(true);
+    addHelpRequest({ userId: user.uid, ...data });
+    toast({
+      title: "Request Submitted",
+      description: "Your request for help has been posted and is being saved.",
+    });
+    form.reset();
+    // The UI is updated optimistically, so we can reset the submitting state.
+    // Errors will be handled by the global error listener.
+    setIsSubmitting(false);
   };
 
   return (
@@ -144,8 +142,8 @@ export default function RequestForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Submit Request
         </Button>
       </form>
