@@ -1,9 +1,9 @@
 
 "use client";
 
-import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc, query, where, getDocs, writeBatch } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc, query, where, getDocs, writeBatch, onSnapshot, deleteDoc } from "firebase/firestore";
 import { db } from "./client";
-import type { HelpRequest, Volunteer, Donor, UserProfile, Donation, TaskHistory } from "../types";
+import type { HelpRequest, Volunteer, Donor, UserProfile, Donation, TaskHistory, Notification } from "../types";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
@@ -31,7 +31,7 @@ export const getUserProfile = async (userId: string) => {
 };
 
 // Help Requests / Tasks
-export const addHelpRequest = (request: Omit<HelpRequest, "id" | "createdAt">) => {
+export const addHelpRequest = (request: Partial<HelpRequest>) => {
   const newRequest = { ...request, createdAt: serverTimestamp(), status: 'pending' };
   const requestsCollection = collection(db, "requests");
   addDoc(requestsCollection, newRequest).catch(async (serverError) => {
@@ -44,6 +44,18 @@ export const addHelpRequest = (request: Omit<HelpRequest, "id" | "createdAt">) =
   });
   console.log("Help request add initiated.");
 };
+
+export const cancelHelpRequest = (requestId: string) => {
+    const requestRef = doc(db, 'requests', requestId);
+    updateDoc(requestRef, { status: 'cancelled' }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: requestRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'cancelled' }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+}
 
 export const getBloodRequests = async (bloodType: string) => {
     const requestsRef = collection(db, "requests");
@@ -58,7 +70,7 @@ export const getBloodRequests = async (bloodType: string) => {
 
 export const getAvailableTasks = async () => {
     const requestsRef = collection(db, "requests");
-    const q = query(requestsRef, where("status", "==", "pending"), where("type", "in", ["Rescue", "Medical", "Other"]));
+    const q = query(requestsRef, where("status", "==", "pending"), where("type", "in", ["Rescue", "Medical", "Other", "Supplies"]));
     const querySnapshot = await getDocs(q);
     const tasks: HelpRequest[] = [];
     querySnapshot.forEach((doc) => {
@@ -192,6 +204,19 @@ export const getUserRequests = async (userId: string) => {
     return JSON.stringify(querySnapshot.docs.map(d => d.data()));
 }
 
+export const getUserHelpRequests = (userId: string, callback: (requests: HelpRequest[]) => void) => {
+    const requestsRef = collection(db, "requests");
+    const q = query(requestsRef, where("userId", "==", userId));
+    
+    return onSnapshot(q, (snapshot) => {
+        const requests: HelpRequest[] = [];
+        snapshot.forEach(doc => {
+            requests.push({ id: doc.id, ...doc.data() } as HelpRequest);
+        });
+        callback(requests.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()));
+    });
+};
+
 // Donation Data
 export const getDonationHistory = async (donorId: string): Promise<Donation[]> => {
     const donationsRef = collection(db, "donations");
@@ -237,4 +262,18 @@ export const getPendingTasks = async (volunteerId: string): Promise<HelpRequest[
         tasks.push({ id: doc.id, ...doc.data() } as HelpRequest);
     });
     return tasks;
+};
+
+// Notifications
+export const getUserNotifications = (userId: string, callback: (notifications: Notification[]) => void) => {
+    const notifsRef = collection(db, 'notifications');
+    const q = query(notifsRef, where("userId", "==", userId));
+
+    return onSnapshot(q, (snapshot) => {
+        const notifications: Notification[] = [];
+        snapshot.forEach(doc => {
+            notifications.push({ id: doc.id, ...doc.data() } as Notification);
+        });
+        callback(notifications.sort((a,b) => b.createdAt.toDate() - a.createdAt.toDate()).slice(0,3));
+    });
 };

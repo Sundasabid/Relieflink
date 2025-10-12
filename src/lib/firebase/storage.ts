@@ -25,6 +25,26 @@ export const uploadIdDocument = async (userId: string, file: File): Promise<stri
   }
 };
 
+/**
+ * Uploads a photo for a help request.
+ * @param userId The ID of the user making the request.
+ * @param file The photo file to upload.
+ * @returns The download URL of the uploaded photo.
+ */
+export const uploadRequestPhoto = async (userId: string, file: File): Promise<string> => {
+  const filePath = `request_photos/${userId}/${Date.now()}_${file.name}`;
+  const storageRef = ref(storage, filePath);
+
+  try {
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error("Error uploading request photo:", error);
+    throw new Error("Photo upload failed. Please try again.");
+  }
+};
+
 
 /**
  * Removes a user's ID document from Firebase Storage.

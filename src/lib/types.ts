@@ -21,16 +21,17 @@ export interface UserProfile {
 export interface HelpRequest {
   id?: string;
   userId: string;
+  requesterName?: string;
   title: string;
   description: string;
-  type: 'Medical' | 'Rescue' | 'Blood' | 'Other';
+  type: 'Blood' | 'Rescue' | 'Supplies' | 'Medical' | 'Other';
   location: string;
   createdAt: any; // Firestore timestamp
-  status: 'pending' | 'accepted' | 'completed';
+  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
   bloodType?: string;
   acceptedBy?: string;
-  requesterName?: string;
-  urgency?: 'low' | 'medium' | 'high';
+  urgency?: 'Urgent' | 'Critical';
+  photoURL?: string;
 }
 
 export interface Volunteer {
@@ -67,4 +68,13 @@ export interface TaskHistory {
     requesterName?: string;
     location?: string;
     taskTitle?: string;
+}
+
+export interface Notification {
+  id?: string;
+  userId: string;
+  message: string;
+  read: boolean;
+  createdAt: any; // Firestore timestamp
+  link?: string;
 }

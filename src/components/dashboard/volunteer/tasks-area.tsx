@@ -50,7 +50,7 @@ export default function AvailableTasks() {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Available Rescue Tasks</CardTitle>
+        <CardTitle>Available Tasks</CardTitle>
         <CardDescription>Tasks available for volunteers to accept.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -74,7 +74,7 @@ export default function AvailableTasks() {
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                         <Badge variant="secondary">{task.type}</Badge>
-                        {task.urgency && <Badge variant={task.urgency === 'high' ? 'destructive' : 'secondary'}>{task.urgency}</Badge>}
+                        {task.urgency && <Badge variant={task.urgency === 'Critical' ? 'destructive' : 'secondary'}>{task.urgency}</Badge>}
                     </div>
                   </div>
                   <Button onClick={() => handleAccept(task)} size="sm">Accept Task</Button>
