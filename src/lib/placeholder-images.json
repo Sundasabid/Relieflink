@@ -1,3 +1,28 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero",
+      "description": "Hero image for ReliefLink",
+      "imageUrl": "https://picsum.photos/seed/relief/1200/600",
+      "imageHint": "disaster relief community"
+    },
+    {
+      "id": "feature-request",
+      "description": "Feature image for submitting requests",
+      "imageUrl": "https://picsum.photos/seed/request/400/300",
+      "imageHint": "person helping"
+    },
+    {
+      "id": "feature-volunteer",
+      "description": "Feature image for volunteering",
+      "imageUrl": "https://picsum.photos/seed/volunteer/400/300",
+      "imageHint": "volunteer group"
+    },
+    {
+      "id": "feature-donate",
+      "description": "Feature image for donating blood",
+      "imageUrl": "https://picsum.photos/seed/donate/400/300",
+      "imageHint": "blood donation"
+    }
+  ]
 }
