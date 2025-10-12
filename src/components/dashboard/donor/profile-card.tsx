@@ -48,17 +48,17 @@ export default function DonorProfileCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-white">My Profile</CardTitle>
+        <CardTitle>My Profile</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
           <p className="font-semibold text-lg">{userProfile?.name}</p>
-          <p className="text-sm text-blue-300">{userProfile?.email}</p>
+          <p className="text-sm text-muted-foreground">{userProfile?.email}</p>
         </div>
         <div className="flex items-center justify-between">
             <div>
                 <p className="text-sm text-muted-foreground">Blood Type</p>
-                <p className="font-bold text-2xl text-blue-400">{bloodType || 'N/A'}</p>
+                <p className="font-bold text-2xl text-primary">{bloodType || 'N/A'}</p>
             </div>
             <div>
                 <p className="text-sm text-muted-foreground">Last Donated</p>

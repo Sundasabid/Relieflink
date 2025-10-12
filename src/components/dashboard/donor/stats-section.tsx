@@ -20,15 +20,15 @@ export default function DonorStats() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-white">My Stats</CardTitle>
+        <CardTitle>My Stats</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-4 text-center">
         <div>
-          <p className="text-3xl font-bold text-blue-400">{totalDonations}</p>
+          <p className="text-3xl font-bold text-primary">{totalDonations}</p>
           <p className="text-sm text-muted-foreground">Total Donations Made</p>
         </div>
         <div>
-          <p className="text-3xl font-bold text-blue-400">{pendingConfirmations}</p>
+          <p className="text-3xl font-bold text-primary">{pendingConfirmations}</p>
           <p className="text-sm text-muted-foreground">Pending Confirmations</p>
         </div>
       </CardContent>

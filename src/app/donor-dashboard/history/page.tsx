@@ -19,14 +19,6 @@ export default function DonationHistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const body = document.body;
-    body.classList.add('donor-dashboard-theme');
-    return () => {
-      body.classList.remove('donor-dashboard-theme');
-    }
-  }, []);
-
-  useEffect(() => {
     if (user) {
       getDonationHistory(user.uid)
         .then(data => {
@@ -44,7 +36,7 @@ export default function DonationHistoryPage() {
       </Button>
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-white">My Donation History</CardTitle>
+          <CardTitle className="text-3xl font-bold">My Donation History</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (

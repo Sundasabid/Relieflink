@@ -64,7 +64,7 @@ export default function BloodRequestNotifications() {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="text-white">Urgent Blood Requests</CardTitle>
+        <CardTitle>Urgent Blood Requests</CardTitle>
         <CardDescription>Requests matching your blood type ({bloodType})</CardDescription>
       </CardHeader>
       <CardContent>
@@ -79,7 +79,7 @@ export default function BloodRequestNotifications() {
         ) : (
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {requests.map(req => (
-              <Card key={req.id} className="bg-background/20">
+              <Card key={req.id}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <p className="font-semibold">{req.title}</p>
