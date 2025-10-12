@@ -42,7 +42,7 @@ export default function DonorProfileCard() {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAvailable, setIsAvailable] = useState(userProfile?.availability ?? false);
+  const [isAvailable, setIsAvailable] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -53,24 +53,22 @@ export default function DonorProfileCard() {
   });
 
   useEffect(() => {
-    if (userProfile) {
-      form.reset({
-        name: userProfile.name || '',
-        bloodType: form.getValues('bloodType') // keep bloodtype
-      });
+    let isMounted = true;
+    if (user && userProfile) {
+      // Set basic profile data first
+      form.setValue('name', userProfile.name || '');
       setIsAvailable(userProfile.availability ?? false);
+
+      // Then fetch and set donor-specific data
+      getDonorData(user.uid).then(donorData => {
+        if (isMounted && donorData?.bloodType) {
+          form.setValue('bloodType', donorData.bloodType);
+        }
+      });
     }
-    if (user) {
-        getDonorData(user.uid).then(donorData => {
-            if(donorData) {
-                form.reset({
-                  name: form.getValues('name') || userProfile?.name || '',
-                  bloodType: donorData.bloodType
-                });
-            }
-        });
-    }
+    return () => { isMounted = false; };
   }, [userProfile, user, form]);
+  
 
   const handleAvailabilityToggle = async (checked: boolean) => {
     if (!user) return;
