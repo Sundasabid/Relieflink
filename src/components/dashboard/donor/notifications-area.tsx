@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function BloodRequestNotifications() {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [requests, setRequests] = useState<HelpRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,13 +49,13 @@ export default function BloodRequestNotifications() {
   }, [bloodType, fetchRequests]);
 
   const handleAccept = (request: HelpRequest) => {
-    if (!user || !userProfile?.name || !request.id) return;
+    if (!user || !request.id) return;
 
-    acceptBloodRequest(request.id, userProfile.name, user.uid);
+    acceptBloodRequest(request, user.uid);
 
     toast({
       title: 'Request Accepted',
-      description: `You have accepted the request from ${request.requesterName}.`,
+      description: `You are helping ${request.requesterName}. Your donation is now pending confirmation.`,
     });
     // Optimistically remove the request from the list
     setRequests(prev => prev.filter(r => r.id !== request.id));
@@ -65,7 +65,7 @@ export default function BloodRequestNotifications() {
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Urgent Blood Requests</CardTitle>
-        <CardDescription>Requests matching your blood type ({bloodType})</CardDescription>
+        <CardDescription>Requests matching your blood type ({bloodType || 'N/A'})</CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? (

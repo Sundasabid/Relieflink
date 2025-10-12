@@ -1,7 +1,7 @@
 
 "use client";
 
-import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { db } from "./client";
 import type { HelpRequest, Volunteer, Donor, UserProfile, Donation } from "../types";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -56,37 +56,51 @@ export const getBloodRequests = async (bloodType: string) => {
     return requests;
 };
 
-export const acceptBloodRequest = (requestId: string, donorName: string, donorId: string) => {
-    const requestRef = doc(db, "requests", requestId);
-    const donationData: Omit<Donation, "id"> = {
-      donorId,
-      requestId,
-      donationDate: serverTimestamp(),
-      status: 'pending',
+export const acceptBloodRequest = (request: HelpRequest, donorId: string) => {
+    if (!request.id) {
+        throw new Error("Request ID is missing");
+    }
+    const batch = writeBatch(db);
+
+    // 1. Update the request status
+    const requestRef = doc(db, "requests", request.id);
+    batch.update(requestRef, {
+        status: "accepted",
+        acceptedBy: donorId,
+    });
+
+    // 2. Create a new donation record
+    const donationRef = doc(collection(db, "donations"));
+    const newDonation: Omit<Donation, 'id'> = {
+        donorId: donorId,
+        requestId: request.id,
+        donationDate: serverTimestamp(),
+        status: 'pending', // Initially pending
+        requesterName: request.requesterName,
+        location: request.location,
     };
-    const donationsCollection = collection(db, "donations");
+    batch.set(donationRef, newDonation);
     
-    addDoc(donationsCollection, donationData).catch(serverError => {
+    // 3. Update the user's availability and last donation date
+    const userRef = doc(db, "users", donorId);
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+    
+    batch.update(userRef, {
+        lastDonationDate: serverTimestamp(),
+        availability: false,
+    });
+
+    batch.commit().catch(serverError => {
         const permissionError = new FirestorePermissionError({
-            path: donationsCollection.path,
-            operation: 'create',
-            requestResourceData: donationData
+            path: `BATCHED_WRITE for request ${request.id}`,
+            operation: 'write',
+            requestResourceData: { requestUpdate: { status: 'accepted' }, newDonation }
         });
         errorEmitter.emit('permission-error', permissionError);
     });
 
-    updateDoc(requestRef, {
-        status: "accepted",
-        acceptedBy: donorName,
-    }).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: requestRef.path,
-            operation: 'update',
-            requestResourceData: { status: 'accepted', acceptedBy: donorName }
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
-    console.log("Blood request acceptance initiated.");
+    console.log("Blood request acceptance and donation creation initiated.");
 }
 
 // Volunteer Data
@@ -123,17 +137,17 @@ export const getDonorData = async (userId: string) => {
     return null;
 }
 
-export const setDonorData = (userId: string, data: Donor) => {
+export const setDonorData = (userId: string, data: Partial<Donor>) => {
   const donorRef = doc(db, "donors", userId);
-  setDoc(donorRef, data, { merge: true }).catch(async (serverError) => {
+  return setDoc(donorRef, data, { merge: true }).catch(async (serverError) => {
       const permissionError = new FirestorePermissionError({
           path: donorRef.path,
           operation: 'update',
           requestResourceData: data,
       });
       errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
   });
-  console.log("Donor data save initiated for user:", userId);
 };
 
 
@@ -151,13 +165,13 @@ export const getUserRequests = async (userId: string) => {
 // Donation Data
 export const getDonationHistory = async (donorId: string): Promise<Donation[]> => {
     const donationsRef = collection(db, "donations");
-    const q = query(donationsRef, where("donorId", "==", donorId), where("status", "==", "completed"));
+    const q = query(donationsRef, where("donorId", "==", donorId));
     const querySnapshot = await getDocs(q);
     const history: Donation[] = [];
     querySnapshot.forEach((doc) => {
         history.push({ id: doc.id, ...doc.data() } as Donation);
     });
-    return history;
+    return history.sort((a, b) => b.donationDate.toDate() - a.donationDate.toDate());
 };
 
 export const getPendingDonations = async (donorId: string): Promise<Donation[]> => {

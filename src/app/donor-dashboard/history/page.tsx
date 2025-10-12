@@ -5,12 +5,15 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { getDonationHistory } from '@/lib/firebase/firestore';
 import type { Donation } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 export default function DonationHistoryPage() {
   const { user } = useAuth();
@@ -28,6 +31,17 @@ export default function DonationHistoryPage() {
     }
   }, [user]);
 
+  const getStatusVariant = (status: string) => {
+      switch(status) {
+          case 'completed':
+              return 'default';
+          case 'pending':
+              return 'secondary';
+          default:
+              return 'outline';
+      }
+  }
+
   return (
     <div className="container mx-auto py-10 min-h-screen">
        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
@@ -37,18 +51,24 @@ export default function DonationHistoryPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-3xl font-bold">My Donation History</CardTitle>
+          <CardDescription>A record of your past and pending donations.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p>Loading history...</p>
+            <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
           ) : history.length === 0 ? (
-            <p>You have no completed donations yet.</p>
+            <p className="text-center py-8 text-muted-foreground">You have no donation history yet.</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Request ID</TableHead>
+                  <TableHead>Recipient</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -56,9 +76,10 @@ export default function DonationHistoryPage() {
                 {history.map(donation => (
                   <TableRow key={donation.id}>
                     <TableCell>{donation.donationDate ? format(donation.donationDate.toDate(), 'PPP') : 'N/A'}</TableCell>
-                    <TableCell className='font-mono'>{donation.requestId}</TableCell>
+                    <TableCell>{donation.requesterName || 'N/A'}</TableCell>
+                    <TableCell>{donation.location || 'N/A'}</TableCell>
                     <TableCell>
-                        <span className='capitalize bg-green-500 text-white px-2 py-1 rounded-full text-xs'>{donation.status}</span>
+                        <Badge variant={getStatusVariant(donation.status)} className='capitalize'>{donation.status}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}

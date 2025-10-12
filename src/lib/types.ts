@@ -52,4 +52,6 @@ export interface Donation {
   requestId: string;
   donationDate: any; // Firestore timestamp
   status: 'pending' | 'completed';
+  requesterName?: string;
+  location?: string;
 }

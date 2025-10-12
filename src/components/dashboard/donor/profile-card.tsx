@@ -3,36 +3,78 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from "@/components/ui/select";
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { updateUserProfile, getDonorData } from '@/lib/firebase/firestore';
+import { updateUserProfile, getDonorData, setDonorData } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { Loader2, Edit, Save } from 'lucide-react';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+const profileSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  bloodType: z.string().min(1, "Blood type is required."),
+});
+
+type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function DonorProfileCard() {
   const { user, userProfile, loading } = useAuth();
   const { toast } = useToast();
-  const [isFit, setIsFit] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAvailable, setIsAvailable] = useState(userProfile?.availability ?? false);
-  const [bloodType, setBloodType] = useState('');
+
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      name: userProfile?.name || "",
+      bloodType: "",
+    },
+  });
 
   useEffect(() => {
     if (userProfile) {
+      form.setValue('name', userProfile.name || '');
       setIsAvailable(userProfile.availability ?? false);
     }
     if (user) {
         getDonorData(user.uid).then(donorData => {
             if(donorData) {
-                setBloodType(donorData.bloodType);
+                form.setValue('bloodType', donorData.bloodType);
             }
         });
     }
-  }, [userProfile, user]);
+  }, [userProfile, user, form]);
 
   const handleAvailabilityToggle = async (checked: boolean) => {
     if (!user) return;
+    if (!form.getValues('bloodType')) {
+        toast({
+            variant: 'destructive',
+            title: 'Blood Type Required',
+            description: 'Please set your blood type before becoming available.'
+        });
+        return;
+    }
     setIsAvailable(checked);
     updateUserProfile(user.uid, { availability: checked })
       .then(() => {
@@ -43,45 +85,120 @@ export default function DonorProfileCard() {
       })
   };
 
-  if (loading) return <div>Loading Profile...</div>
+  const onSubmit = async (data: ProfileFormValues) => {
+    if (!user) {
+        toast({ title: 'Error', description: 'You must be logged in.', variant: 'destructive' });
+        return;
+    }
+    setIsSubmitting(true);
+    
+    try {
+        await Promise.all([
+            updateUserProfile(user.uid, { name: data.name }),
+            setDonorData(user.uid, {
+                userId: user.uid,
+                bloodType: data.bloodType,
+                availability: isAvailable.toString(),
+                location: userProfile?.phone || ''
+            })
+        ]);
+        toast({
+            title: 'Profile Updated',
+            description: 'Your profile has been saved successfully.'
+        });
+        setIsEditing(false);
+    } catch (error) {
+        // Errors are handled by the global handler
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+  
+  const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+  if (loading) return <Card><CardHeader><CardTitle>My Profile</CardTitle></CardHeader><CardContent>Loading Profile...</CardContent></Card>;
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>My Profile</CardTitle>
+        {!isEditing && (
+            <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+                <Edit className="h-5 w-5" />
+            </Button>
+        )}
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <p className="font-semibold text-lg">{userProfile?.name}</p>
-          <p className="text-sm text-muted-foreground">{userProfile?.email}</p>
-        </div>
-        <div className="flex items-center justify-between">
-            <div>
-                <p className="text-sm text-muted-foreground">Blood Type</p>
-                <p className="font-bold text-2xl text-primary">{bloodType || 'N/A'}</p>
-            </div>
-            <div>
-                <p className="text-sm text-muted-foreground">Last Donated</p>
-                <p className="font-bold text-lg">
-                    {userProfile?.lastDonationDate ? format(userProfile.lastDonationDate.toDate(), 'PPP') : 'N/A'}
-                </p>
-            </div>
-        </div>
-        <div className="flex items-center space-x-2 pt-4">
-          <Checkbox id="fit-to-donate" checked={isFit} onCheckedChange={(checked) => setIsFit(Boolean(checked))} />
-          <Label htmlFor="fit-to-donate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-            I'm fit to donate.
-          </Label>
-        </div>
-        <div className="flex items-center justify-between pt-2">
-          <Label htmlFor="availability-switch" className="font-medium">Available to Donate</Label>
-          <Switch
-            id="availability-switch"
-            checked={isAvailable}
-            onCheckedChange={handleAvailabilityToggle}
-            aria-readonly
-          />
-        </div>
+      <CardContent>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-4">
+                    <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Full Name</FormLabel>
+                                <FormControl>
+                                    <Input {...field} disabled={!isEditing || isSubmitting} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <Input value={userProfile?.email || ''} disabled />
+                    </FormItem>
+                     <FormField
+                        control={form.control}
+                        name="bloodType"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Blood Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={!isEditing || isSubmitting}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select your blood type" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {bloodTypes.map(type => (
+                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                    <Label htmlFor="availability-switch" className="font-medium">Available to Donate</Label>
+                    <Switch
+                        id="availability-switch"
+                        checked={isAvailable}
+                        onCheckedChange={handleAvailabilityToggle}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {isEditing && (
+                    <div className="flex justify-end gap-2">
+                         <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Save className="mr-2 h-4 w-4" />
+                            )}
+                            Save Changes
+                        </Button>
+                    </div>
+                )}
+            </form>
+        </Form>
       </CardContent>
     </Card>
   );
