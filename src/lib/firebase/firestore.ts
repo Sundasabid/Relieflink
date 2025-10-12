@@ -125,12 +125,9 @@ export const acceptBloodRequest = (request: HelpRequest, donorId: string) => {
     
     // 3. Update the user's availability and last donation date
     const userRef = doc(db, "users", donorId);
-    const threeMonthsFromNow = new Date();
-    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
     
     batch.update(userRef, {
         lastDonationDate: serverTimestamp(),
-        availability: false,
     });
 
     batch.commit().catch(serverError => {
@@ -144,6 +141,41 @@ export const acceptBloodRequest = (request: HelpRequest, donorId: string) => {
 
     console.log("Blood request acceptance and donation creation initiated.");
 }
+
+export const completeBloodRequest = async (requestId: string, requesterId: string) => {
+    const batch = writeBatch(db);
+
+    // 1. Update the original request to 'completed'
+    const requestRef = doc(db, "requests", requestId);
+    batch.update(requestRef, { status: "completed" });
+
+    // 2. Find the 'pending' donation associated with this request and update it to 'completed'
+    const donationsRef = collection(db, "donations");
+    const q = query(donationsRef, where("requestId", "==", requestId), where("status", "==", "pending"));
+    
+    try {
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const donationDoc = querySnapshot.docs[0];
+            batch.update(donationDoc.ref, { status: "completed" });
+        } else {
+            console.warn(`No pending donation found for request ID: ${requestId}`);
+        }
+
+        // Commit the batch
+        await batch.commit();
+        console.log(`Blood request ${requestId} marked as completed.`);
+
+    } catch (serverError: any) {
+        const permissionError = new FirestorePermissionError({
+            path: `BATCHED_WRITE for completing request ${requestId}`,
+            operation: 'write',
+            requestResourceData: { requestUpdate: { status: 'completed' }, donationUpdate: {status: 'completed'} }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+};
+
 
 // Volunteer Data
 export const getVolunteerData = async (userId: string) => {

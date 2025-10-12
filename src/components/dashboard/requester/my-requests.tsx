@@ -1,15 +1,15 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { getUserHelpRequests, cancelHelpRequest } from '@/lib/firebase/firestore';
+import { getUserHelpRequests, cancelHelpRequest, completeBloodRequest } from '@/lib/firebase/firestore';
 import type { HelpRequest } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -36,6 +36,15 @@ export default function MyRequests() {
     toast({
       title: 'Request Cancelled',
       description: 'Your help request has been cancelled.',
+    });
+  };
+
+  const handleCompleteBloodRequest = (requestId: string) => {
+    if (!user) return;
+    completeBloodRequest(requestId, user.uid);
+    toast({
+        title: 'Donation Confirmed',
+        description: 'Thank you for confirming the donation. The request is now complete.',
     });
   };
 
@@ -70,7 +79,7 @@ export default function MyRequests() {
                       <Badge variant={getStatusVariant(req.status)} className="capitalize">{req.status}</Badge>
                       <span className="text-sm font-semibold">{req.type} Request</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                     <p className="text-sm text-muted-foreground">
                       Urgency: <span className="font-medium text-foreground">{req.urgency}</span>
                     </p>
                      <p className="text-sm text-muted-foreground">
@@ -81,27 +90,35 @@ export default function MyRequests() {
                     </p>
                      {req.description && <p className="text-sm mt-2 p-2 bg-muted rounded-md">{req.description}</p>}
                   </div>
-                  {req.status === 'pending' && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently cancel your request. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Back</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleCancel(req.id!)} className="bg-destructive hover:bg-destructive/90">
-                            Yes, Cancel Request
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+                  <div className='flex flex-col gap-2 items-end'>
+                    {req.status === 'pending' && (
+                        <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently cancel your request. This action cannot be undone.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleCancel(req.id!)} className="bg-destructive hover:bg-destructive/90">
+                                Yes, Cancel Request
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                    {req.status === 'accepted' && req.type === 'Blood' && (
+                        <Button size="sm" onClick={() => handleCompleteBloodRequest(req.id!)}>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Mark as Completed
+                        </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}
