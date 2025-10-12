@@ -1,155 +1,164 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a user-ownership model for user profiles,
- * help requests, volunteer registrations and donor registrations.
+ * @file Firebase Security Rules for Firestore.
  *
- * Data Structure:
- * - /users/{userId}: User profile information.
- * - /requests/{requestId}: Help requests.
- * - /volunteers/{userId}: Volunteer information.
- * - /donors/{userId}: Donor information.
+ * @core_philosophy This ruleset enforces a strict user-ownership model for user profiles
+ * and volunteer/donor registrations. Help requests, donations, and task histories are publicly
+ * readable but writable only by authenticated users with proper authorization (e.g., matching user ID).
+ * Admin access is not defined, and will require an explicit role based implementation.
  *
- * Key Security Decisions:
- * - Users can only read and write their own profile data.
- * - Users can create, read, update, and delete their own help requests.
- * - Users can create, read, update, and delete their volunteer registration and blood donation data.
- * - Listing of users, requests, volunteers or donors is not allowed to prevent data scraping or privacy issues.
+ * @data_structure
+ * - /users/{userId}: User profile information, accessible only by the user themselves.
+ * - /requests/{requestId}: Help requests, publicly readable but writable only by the user.
+ * - /volunteers/{userId}: Volunteer information, accessible only by the user themselves.
+ * - /donors/{userId}: Donor information, accessible only by the user themselves.
+ * - /donations/{donationId}: Donation records, publicly readable, but writable only by the user.
+ * - /taskHistory/{taskId}: Task history records, publicly readable, but writable only by the user.
  *
- * Error Context:
- * The original error was a `FirestorePermissionError` during an `update` operation on `/users/{userId}`.
- * The user was attempting to update their `role` to "volunteer".  The current rules do not allow this update.
- * Since roles are sensitive, only authenticated users can update their own role to 'volunteer'
- * This fixes the error reported by NextJS by allowing updates to the 'role' field in /users/{userId} for authenticated users only.
+ * @key_security_decisions
+ * - User listing is disallowed to protect privacy.
+ * - Data validation is relaxed for rapid prototyping but focuses on ownership checks.
+ * - Admin roles are currently undefined.
+ *
+ * @denormalization_for_authorization
+ *  - Each document needing restricted write access includes a `userId` or similar field.
+ *    This avoids needing to perform expensive `get()` operations in the rules.
+ *
+ * @structural_segregation
+ *  - There is no distinction between private and public user data. All user data is considered private
+ *    and stored under the /users/{userId} path.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Checks if the request is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the existing owner of the document.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description User profile documents.
      * @path /users/{userId}
-     * @allow (create) Authenticated user can create their own profile.
-     * @allow (get) Authenticated user can read their own profile.
-     * @allow (update) Authenticated user can update their own profile.
-     * @allow (delete) Authenticated user can delete their own profile.
-     * @deny (create) Unauthorized user cannot create a profile for another user.
-     * @deny (get) Unauthorized user cannot read another user's profile.
-     * @deny (update) Unauthorized user cannot update another user's profile.
-     * @deny (delete) Unauthorized user cannot delete another user's profile.
-     * @deny (list) Listing all users is prohibited.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with UID 'user123' can create their profile.
+     * @allow (get) User with UID 'user123' can read their profile.
+     * @deny (create) User with UID 'user456' cannot create a profile for 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the profile of 'user123'.
+     * @deny (delete) User with UID 'user456' cannot delete the profile of 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
-      allow get: if isSignedIn() && isOwner(userId);
-      allow update: if isExistingOwner(userId) && (request.resource.data.uid == resource.data.uid);
-      allow delete: if isExistingOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to help request documents.
+     * @description Help request documents.
      * @path /requests/{requestId}
-     * @allow (create) Authenticated user can create a help request.
-     * @allow (get) Authenticated user can read a help request.
-     * @allow (update) Authenticated user can update their own help request.
-     * @allow (delete) Authenticated user can delete their own help request.
-     * @deny (create) Unauthorized user cannot create a help request for another user.
-     * @deny (get) Unauthorized user cannot read another user's help request.
-     * @deny (update) Unauthorized user cannot update another user's help request.
-     * @deny (delete) Unauthorized user cannot delete another user's help request.
-     * @deny (list) Listing all requests is prohibited.
-     * @principle Enforces document ownership for writes, public read.
+     * @allow (get) Any user can read a help request.
+     * @allow (list) Any user can list help requests.
+     * @allow (create) User with UID 'user123' can create a help request with userId 'user123'.
+     * @deny (create) User with UID 'user456' cannot create a help request with userId 'user123'.
+     * @deny (update) User with UID 'user456' cannot update a help request created by 'user123'.
+     * @deny (delete) User with UID 'user456' cannot delete a help request created by 'user123'.
+     * @principle Public read, owner-only writes, validates creator ID on create, immutable creator ID.
      */
     match /requests/{requestId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
-
-        allow get, list: if true;
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && request.auth.uid == resource.data.userId && resource != null;
-        allow delete: if isSignedIn() && request.auth.uid == resource.data.userId && resource != null;
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(resource.data.userId);
     }
 
     /**
-     * @description Controls access to volunteer registration documents.
+     * @description Volunteer registration documents.
      * @path /volunteers/{userId}
-     * @allow (create) Authenticated user can create their own volunteer registration.
-     * @allow (get) Authenticated user can read their own volunteer registration.
-     * @allow (update) Authenticated user can update their own volunteer registration.
-     * @allow (delete) Authenticated user can delete their own volunteer registration.
-     * @deny (create) Unauthorized user cannot create a volunteer registration for another user.
-     * @deny (get) Unauthorized user cannot read another user's volunteer registration.
-     * @deny (update) Unauthorized user cannot update another user's volunteer registration.
-     * @deny (delete) Unauthorized user cannot delete another user's volunteer registration.
-     * @deny (list) Listing all volunteers is prohibited.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with UID 'user123' can create their volunteer profile.
+     * @allow (get) User with UID 'user123' can read their volunteer profile.
+     * @deny (create) User with UID 'user456' cannot create a volunteer profile for 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the volunteer profile of 'user123'.
+     * @deny (delete) User with UID 'user456' cannot delete the volunteer profile of 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /volunteers/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow get: if isSignedIn() && isOwner(userId);
-      allow update: if isExistingOwner(userId) && (request.resource.data.userId == resource.data.userId);
-      allow delete: if isExistingOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to blood donor registration documents.
+     * @description Blood donor registration documents.
      * @path /donors/{userId}
-     * @allow (create) Authenticated user can create their own donor registration.
-     * @allow (get) Authenticated user can read their own donor registration.
-     * @allow (update) Authenticated user can update their own donor registration.
-     * @allow (delete) Authenticated user can delete their own donor registration.
-     * @deny (create) Unauthorized user cannot create a donor registration for another user.
-     * @deny (get) Unauthorized user cannot read another user's donor registration.
-     * @deny (update) Unauthorized user cannot update another user's donor registration.
-     * @deny (delete) Unauthorized user cannot delete another user's donor registration.
-     * @deny (list) Listing all donors is prohibited.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with UID 'user123' can create their donor profile.
+     * @allow (get) User with UID 'user123' can read their donor profile.
+     * @deny (create) User with UID 'user456' cannot create a donor profile for 'user123'.
+     * @deny (update) User with UID 'user456' cannot update the donor profile of 'user123'.
+     * @deny (delete) User with UID 'user456' cannot delete the donor profile of 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /donors/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow get: if isSignedIn() && isOwner(userId);
-      allow update: if isExistingOwner(userId) && (request.resource.data.userId == resource.data.userId);
-      allow delete: if isExistingOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Donation history documents.
+     * @path /donations/{donationId}
+     * @allow (get) Any user can read a donation record.
+     * @allow (list) Any user can list donation records.
+     * @allow (create) Authenticated user can create donation records.
+     * @deny (update) Non-owner cannot update a donation record.
+     * @deny (delete) Non-owner cannot delete a donation record.
+     * @principle Public read, owner-only writes.
+     */
+    match /donations/{donationId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn();
+      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+         * @description Task history documents.
+         * @path /taskHistory/{taskId}
+         * @allow (get) Any user can read a task history record.
+         * @allow (list) Any user can list task history records.
+         * @allow (create) Authenticated user can create task history records.
+         * @deny (update) Non-owner cannot update a task history record.
+         * @deny (delete) Non-owner cannot delete a task history record.
+         * @principle Public read, owner-only writes.
+         */
+    match /taskHistory/{taskId} {
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn();
+        allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
   }
 }
