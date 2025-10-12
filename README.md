@@ -4,7 +4,7 @@ ReliefLink is a public service platform for disaster relief and blood donation, 
 
 ## Core Features
 
-- **User Authentication**: Secure sign-up and login using email/password, Google, and phone authentication.
+- **User Authentication**: Secure sign-up and login using email/password, Google.
 - **Profile Management**: Users can create and manage their profiles.
 - **Request Submission**: Authenticated users can submit requests for help, medical aid, rescue, or blood.
 - **Volunteer & Donor Registration**: Users can register as volunteers or blood donors to contribute to relief efforts.
