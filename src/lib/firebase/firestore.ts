@@ -1,9 +1,9 @@
 
 "use client";
 
-import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp, updateDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "./client";
-import type { HelpRequest, Volunteer, Donor, UserProfile } from "../types";
+import type { HelpRequest, Volunteer, Donor, UserProfile, Donation } from "../types";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
@@ -32,7 +32,7 @@ export const getUserProfile = async (userId: string) => {
 
 // Help Requests
 export const addHelpRequest = (request: Omit<HelpRequest, "id" | "createdAt">) => {
-  const newRequest = { ...request, createdAt: serverTimestamp() };
+  const newRequest = { ...request, createdAt: serverTimestamp(), status: 'pending' };
   const requestsCollection = collection(db, "requests");
   addDoc(requestsCollection, newRequest).catch(async (serverError) => {
     const permissionError = new FirestorePermissionError({
@@ -44,6 +44,50 @@ export const addHelpRequest = (request: Omit<HelpRequest, "id" | "createdAt">) =
   });
   console.log("Help request add initiated.");
 };
+
+export const getBloodRequests = async (bloodType: string) => {
+    const requestsRef = collection(db, "requests");
+    const q = query(requestsRef, where("type", "==", "Blood"), where("bloodType", "==", bloodType), where("status", "==", "pending"));
+    const querySnapshot = await getDocs(q);
+    const requests: HelpRequest[] = [];
+    querySnapshot.forEach((doc) => {
+        requests.push({ id: doc.id, ...doc.data() } as HelpRequest);
+    });
+    return requests;
+};
+
+export const acceptBloodRequest = (requestId: string, donorName: string, donorId: string) => {
+    const requestRef = doc(db, "requests", requestId);
+    const donationData: Omit<Donation, "id"> = {
+      donorId,
+      requestId,
+      donationDate: serverTimestamp(),
+      status: 'pending',
+    };
+    const donationsCollection = collection(db, "donations");
+    
+    addDoc(donationsCollection, donationData).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: donationsCollection.path,
+            operation: 'create',
+            requestResourceData: donationData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+
+    updateDoc(requestRef, {
+        status: "accepted",
+        acceptedBy: donorName,
+    }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: requestRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'accepted', acceptedBy: donorName }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+    console.log("Blood request acceptance initiated.");
+}
 
 // Volunteer Data
 export const getVolunteerData = async (userId: string) => {
@@ -95,11 +139,34 @@ export const setDonorData = (userId: string, data: Donor) => {
 
 // Generic function to get all requests by a user
 export const getUserRequests = async (userId: string) => {
-    // This is a simplified version. A real app would use a query.
-    // For the AI suggestion, we'll just check if a user has made any request.
-    // A more complex implementation would query the 'requests' collection
-    // where 'userId' === userId. This is not implemented here to keep it simple
-    // and because it can be inefficient without proper indexing.
-    // For now, we will return an empty string as we don't have user specific requests yet
-    return "";
+    const requestsRef = collection(db, "requests");
+    const q = query(requestsRef, where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    if(querySnapshot.empty){
+      return ""
+    }
+    return JSON.stringify(querySnapshot.docs.map(d => d.data()));
 }
+
+// Donation Data
+export const getDonationHistory = async (donorId: string): Promise<Donation[]> => {
+    const donationsRef = collection(db, "donations");
+    const q = query(donationsRef, where("donorId", "==", donorId), where("status", "==", "completed"));
+    const querySnapshot = await getDocs(q);
+    const history: Donation[] = [];
+    querySnapshot.forEach((doc) => {
+        history.push({ id: doc.id, ...doc.data() } as Donation);
+    });
+    return history;
+};
+
+export const getPendingDonations = async (donorId: string): Promise<Donation[]> => {
+    const donationsRef = collection(db, "donations");
+    const q = query(donationsRef, where("donorId", "==", donorId), where("status", "==", "pending"));
+    const querySnapshot = await getDocs(q);
+    const pending: Donation[] = [];
+    querySnapshot.forEach((doc) => {
+        pending.push({ id: doc.id, ...doc.data() } as Donation);
+    });
+    return pending;
+};

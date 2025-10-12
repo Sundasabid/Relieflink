@@ -13,6 +13,8 @@ export interface UserProfile {
   email: string | null;
   phone: string | null;
   role: Role;
+  lastDonationDate?: any; // Firestore timestamp
+  availability?: boolean;
 }
 
 export interface HelpRequest {
@@ -23,6 +25,11 @@ export interface HelpRequest {
   type: 'Medical' | 'Rescue' | 'Blood' | 'Other';
   location: string;
   createdAt: any; // Firestore timestamp
+  status: 'pending' | 'accepted' | 'completed';
+  bloodType?: string;
+  acceptedBy?: string;
+  requesterName?: string;
+  urgency?: 'low' | 'medium' | 'high';
 }
 
 export interface Volunteer {
@@ -37,4 +44,12 @@ export interface Donor {
   bloodType: string;
   availability: string;
   location: string;
+}
+
+export interface Donation {
+  id?: string;
+  donorId: string;
+  requestId: string;
+  donationDate: any; // Firestore timestamp
+  status: 'pending' | 'completed';
 }

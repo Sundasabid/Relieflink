@@ -9,7 +9,9 @@
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
-        "role": { "type": "string" }
+        "role": { "type": "string" },
+        "lastDonationDate": { "type": "string", "format": "date-time" },
+        "availability": { "type": "boolean" }
       },
       "required": ["uid", "name", "email", "role"]
     },
@@ -23,7 +25,10 @@
         "description": { "type": "string" },
         "type": { "type": "string", "enum": ["Medical", "Rescue", "Blood", "Other"] },
         "location": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "completed"] },
+        "bloodType": { "type": "string" },
+        "acceptedBy": { "type": "string" }
       },
       "required": ["userId", "title", "description", "type", "location", "createdAt"]
     },
@@ -50,6 +55,18 @@
         "location": { "type": "string" }
       },
       "required": ["userId", "bloodType", "availability", "location"]
+    },
+    "Donation": {
+      "title": "Donation",
+      "description": "A record of a blood donation.",
+      "type": "object",
+      "properties": {
+        "donorId": { "type": "string" },
+        "requestId": { "type": "string" },
+        "donationDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "completed"] }
+      },
+      "required": ["donorId", "requestId", "donationDate", "status"]
     }
   },
   "auth": {
@@ -71,6 +88,10 @@
     "/donors/{userId}": {
       "schema": { "$ref": "#/entities/Donor" },
       "description": "Blood donor registration documents."
+    },
+    "/donations/{donationId}": {
+      "schema": { "$ref": "#/entities/Donation" },
+      "description": "Donation history documents."
     }
   }
 }
